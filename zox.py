@@ -33,7 +33,7 @@ from pyrogram.errors import RPCError
 # --- Continue with rest of your code ---
 
 # ----------------- CONFIGURATION -----------------
-BOT_TOKEN = '8441889585:AAEzK6uiWBPUG_4tEATWV2XojH80A0Jih8Y'
+BOT_TOKEN = '8441889585:AAHingdC8NrvNT84Ya-topY8A2a58NRj27s'
 ADMIN_ID = 8790937904
 FAM_API_KEY = 'fam_76e80dd1401deb6f2e74aa34e270c6f41ff9b088'
 BASE_URL = 'https://famgateway.in'
