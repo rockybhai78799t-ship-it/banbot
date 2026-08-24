@@ -5,6 +5,10 @@ With REAL Payment Verification via FAM Gateway
 UPI: Chandaliya@fam
 """
 
+# CRITICAL: nest_asyncio MUST be applied before ANY other imports
+import nest_asyncio
+nest_asyncio.apply()
+
 import sqlite3
 import json
 import asyncio
@@ -15,10 +19,10 @@ import string
 import time
 import sys
 import aiohttp
-import nest_asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 
+# Now import pyrogram
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, 
@@ -26,9 +30,6 @@ from pyrogram.types import (
 )
 from pyrogram.enums import ChatType, ChatMemberStatus
 from pyrogram.errors import RPCError
-
-# Apply nest_asyncio to fix event loop issues
-nest_asyncio.apply()
 
 # ----------------- CONFIGURATION -----------------
 BOT_TOKEN = '8441889585:AAEzK6uiWBPUG_4tEATWV2XojH80A0Jih8Y'
