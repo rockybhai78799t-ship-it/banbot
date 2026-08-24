@@ -4,11 +4,6 @@ Anti-Premium Guard Bot - Pure Python Single File Version
 With REAL Payment Verification via FAM Gateway
 UPI: Chandaliya@fam
 """
-
-# CRITICAL: nest_asyncio MUST be applied before ANY other imports
-import nest_asyncio
-nest_asyncio.apply()
-
 import sqlite3
 import json
 import asyncio
