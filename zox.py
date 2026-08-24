@@ -4,9 +4,16 @@ Anti-Premium Guard Bot - Pure Python Single File Version
 With REAL Payment Verification via FAM Gateway
 """
 
+# --- CRITICAL: Setup event loop BEFORE importing pyrogram ---
+import asyncio
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
 import sqlite3
 import json
-import asyncio
 import logging
 import os
 import random
@@ -23,6 +30,7 @@ from pyrogram.types import (
 )
 from pyrogram.enums import ChatType, ChatMemberStatus
 from pyrogram.errors import RPCError
+# --- Continue with rest of your code ---
 
 # ----------------- CONFIGURATION -----------------
 BOT_TOKEN = '8441889585:AAEzK6uiWBPUG_4tEATWV2XojH80A0Jih8Y'
