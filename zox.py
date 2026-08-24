@@ -23,7 +23,7 @@ import aiohttp
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, 
     InlineKeyboardButton, ChatMemberUpdated
@@ -439,8 +439,6 @@ class AntiPremiumBot:
         
         try:
             if params:
-                url = f"{url}?{aiohttp.helpers.parse_qs(params)}"  # Actually use proper query building
-                # Better way:
                 async with self.session.get(url, params=params, timeout=15) as resp:
                     if resp.status == 200:
                         return await resp.json()
@@ -1132,8 +1130,8 @@ _(Custom days parameter applies automatically based on the monthly standard valu
         await self.app.start()
         
         try:
-            # Keep the bot running using pyrogram's idle method
-            await self.app.idle()
+            # Keep the bot running using pyrogram's idle function
+            await idle()
         finally:
             await self.session.close()
             await self.app.stop()
