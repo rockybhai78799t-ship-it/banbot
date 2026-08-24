@@ -18,14 +18,11 @@ import aiohttp
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 
-# Import pyrogram after setting up event loop
-from pyrogram import Client, filters
-from pyrogram.types import (
-    Message, CallbackQuery, InlineKeyboardMarkup, 
-    InlineKeyboardButton, ChatMemberUpdated
-)
-from pyrogram.enums import ChatType, ChatMemberStatus
-from pyrogram.errors import RPCError
+# Lazy import - Pyrogram will be imported inside async function
+# from pyrogram import Client, filters  # DON'T import here
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ----------------- CONFIGURATION -----------------
 BOT_TOKEN = '8441889585:AAEzK6uiWBPUG_4tEATWV2XojH80A0Jih8Y'
@@ -38,9 +35,6 @@ UPI_NAME = 'Chandaliya'
 
 API_ID = 35167678
 API_HASH = "6e276419f272bd0d69c348463f02b17f"
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # ----------------- DATABASE -----------------
 class Database:
@@ -424,9 +418,36 @@ class Database:
 class AntiPremiumBot:
     def __init__(self):
         self.db = Database()
-        self.app = Client("bot", bot_token=BOT_TOKEN, api_id=API_ID, api_hash=API_HASH)
+        self.app = None
         self.dm_processor_task = None
-        self.session = None  # aiohttp session
+        self.session = None
+    
+    def init_pyrogram(self):
+        """Initialize pyrogram after event loop is set"""
+        from pyrogram import Client, filters
+        from pyrogram.types import (
+            Message, CallbackQuery, InlineKeyboardMarkup, 
+            InlineKeyboardButton, ChatMemberUpdated
+        )
+        from pyrogram.enums import ChatType, ChatMemberStatus
+        from pyrogram.errors import RPCError
+        
+        # Store imported modules
+        self.pyrogram = {
+            'Client': Client,
+            'filters': filters,
+            'Message': Message,
+            'CallbackQuery': CallbackQuery,
+            'InlineKeyboardMarkup': InlineKeyboardMarkup,
+            'InlineKeyboardButton': InlineKeyboardButton,
+            'ChatMemberUpdated': ChatMemberUpdated,
+            'ChatType': ChatType,
+            'ChatMemberStatus': ChatMemberStatus,
+            'RPCError': RPCError
+        }
+        
+        self.app = Client("bot", bot_token=BOT_TOKEN, api_id=API_ID, api_hash=API_HASH)
+        return self.pyrogram
     
     # ---------- HTTP Helpers ----------
     async def make_post_request(self, url: str, payload: dict) -> Optional[dict]:
@@ -452,13 +473,13 @@ class AntiPremiumBot:
     
     # ---------- Payment ----------
     async def initiate_payment(self, user_id: int, chat_id: int, amount: float, days: int):
-        """Initiate payment with FAM Gateway - EXACTLY like original"""
+        """Initiate payment with FAM Gateway"""
         try:
             url = f"{BASE_URL}/api/create-order.php"
             
             payload = {
                 "amount": amount,
-                "redirect_url": f"https://t.me/YourBotUsername",  # Change this to your bot username
+                "redirect_url": f"https://t.me/YourBotUsername",
                 "upi_id": UPI_ID,
                 "payee_name": UPI_NAME
             }
@@ -474,7 +495,6 @@ class AntiPremiumBot:
             order_id = order_data['order_id']
             checkout_url = order_data.get('checkout_url')
             
-            # Store payment in DB
             self.db.add_payment(order_id, user_id, amount, days)
             
             plan_str = "Lifetime Access" if days > 36000 else f"{days} Days Access"
@@ -486,10 +506,10 @@ class AntiPremiumBot:
 
 Complete the payment via checkout and click **Verify Payment**."""
 
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("💳 Pay Now (UPI / QR)", url=checkout_url)],
-                [InlineKeyboardButton("🔄 Verify Payment", callback_data=f"verify_pay:{order_id}")],
-                [InlineKeyboardButton("🔙 Back to Menu", callback_data="start_menu")]
+            kb = self.pyrogram['InlineKeyboardMarkup']([
+                [self.pyrogram['InlineKeyboardButton']("💳 Pay Now (UPI / QR)", url=checkout_url)],
+                [self.pyrogram['InlineKeyboardButton']("🔄 Verify Payment", callback_data=f"verify_pay:{order_id}")],
+                [self.pyrogram['InlineKeyboardButton']("🔙 Back to Menu", callback_data="start_menu")]
             ])
             
             await self.app.send_message(chat_id, text, reply_markup=kb)
@@ -499,7 +519,7 @@ Complete the payment via checkout and click **Verify Payment**."""
             await self.app.send_message(chat_id, f"⚠️ Payment error: {str(e)}")
     
     async def verify_payment(self, order_id: str, chat_id: int, callback_id: str = None):
-        """Verify payment with FAM Gateway - EXACTLY like original"""
+        """Verify payment with FAM Gateway"""
         try:
             url = f"{BASE_URL}/api/verify-order.php"
             
@@ -512,14 +532,11 @@ Complete the payment via checkout and click **Verify Payment**."""
             if result and result.get('status') == 'success':
                 days = self.db.get_payment_days(order_id) or 30
                 
-                # Mark payment as success
                 self.db.mark_payment_success(order_id)
-                
-                # Generate and save key
                 new_key = self.db.generate_key(days)
                 
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔑 Activate Automatically", callback_data=f"auto_claim:{new_key}")]
+                kb = self.pyrogram['InlineKeyboardMarkup']([
+                    [self.pyrogram['InlineKeyboardButton']("🔑 Activate Automatically", callback_data=f"auto_claim:{new_key}")]
                 ])
                 
                 plan_name = "Lifetime" if days > 36000 else f"{days}-Day"
@@ -589,51 +606,50 @@ Complete the payment via checkout and click **Verify Payment**."""
     
     # ---------- Keyboards ----------
     def dashboard_kb(self):
-        return InlineKeyboardMarkup([
+        return self.pyrogram['InlineKeyboardMarkup']([
             [
-                InlineKeyboardButton("➕ Approve User", callback_data="approve_user"),
-                InlineKeyboardButton("🗑 Delete Approved", callback_data="del_approved_menu")
+                self.pyrogram['InlineKeyboardButton']("➕ Approve User", callback_data="approve_user"),
+                self.pyrogram['InlineKeyboardButton']("🗑 Delete Approved", callback_data="del_approved_menu")
             ],
             [
-                InlineKeyboardButton("💾 SAVE DM MSG", callback_data="setup_leave_dms")
+                self.pyrogram['InlineKeyboardButton']("💾 SAVE DM MSG", callback_data="setup_leave_dms")
             ],
             [
-                InlineKeyboardButton("🔄 Refresh Dashboard", callback_data="open_dashboard")
+                self.pyrogram['InlineKeyboardButton']("🔄 Refresh Dashboard", callback_data="open_dashboard")
             ]
         ])
     
     def admin_dashboard_kb(self):
-        return InlineKeyboardMarkup([
+        return self.pyrogram['InlineKeyboardMarkup']([
             [
-                InlineKeyboardButton("🤖 Add Agent Session", callback_data="adm_add_agent")
+                self.pyrogram['InlineKeyboardButton']("🤖 Add Agent Session", callback_data="adm_add_agent")
             ],
             [
-                InlineKeyboardButton("💵 Change Pricing", callback_data="adm_change_price_menu"),
-                InlineKeyboardButton("🔑 Gen Custom Key", callback_data="adm_gen_key")
+                self.pyrogram['InlineKeyboardButton']("💵 Change Pricing", callback_data="adm_change_price_menu"),
+                self.pyrogram['InlineKeyboardButton']("🔑 Gen Custom Key", callback_data="adm_gen_key")
             ],
             [
-                InlineKeyboardButton("📊 Financial Stats", callback_data="adm_fin_stats"),
-                InlineKeyboardButton("📈 Channel Kicks Data", callback_data="adm_kick_stats")
+                self.pyrogram['InlineKeyboardButton']("📊 Financial Stats", callback_data="adm_fin_stats"),
+                self.pyrogram['InlineKeyboardButton']("📈 Channel Kicks Data", callback_data="adm_kick_stats")
             ],
             [
-                InlineKeyboardButton("🔄 Refresh", callback_data="adm_dashboard")
+                self.pyrogram['InlineKeyboardButton']("🔄 Refresh", callback_data="adm_dashboard")
             ]
         ])
     
     def back_kb(self, target: str = "open_dashboard"):
-        return InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙 Back", callback_data=target)]
+        return self.pyrogram['InlineKeyboardMarkup']([
+            [self.pyrogram['InlineKeyboardButton']("🔙 Back", callback_data=target)]
         ])
     
     def start_kb(self):
-        return InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔑 Enter Access Key", callback_data="enter_key")],
-            [InlineKeyboardButton("💳 Buy Subscription", callback_data="buy_key")]
+        return self.pyrogram['InlineKeyboardMarkup']([
+            [self.pyrogram['InlineKeyboardButton']("🔑 Enter Access Key", callback_data="enter_key")],
+            [self.pyrogram['InlineKeyboardButton']("💳 Buy Subscription", callback_data="buy_key")]
         ])
     
-    # ---------- DM Processor (Background) ----------
+    # ---------- DM Processor ----------
     async def process_dm_queue(self):
-        """Background task to process pending DMs using agents"""
         while True:
             try:
                 task = self.db.get_pending_dm()
@@ -650,6 +666,7 @@ Complete the payment via checkout and click **Verify Payment**."""
                         continue
                     
                     try:
+                        Client = self.pyrogram['Client']
                         async with Client(
                             f"agent_{task['id']}", 
                             api_id=API_ID, 
@@ -680,7 +697,7 @@ Complete the payment via checkout and click **Verify Payment**."""
                 await asyncio.sleep(5)
     
     # ---------- Handlers ----------
-    async def start_command(self, client: Client, message: Message):
+    async def start_command(self, client, message):
         user_id = message.from_user.id
         self.db.set_state(user_id, None)
         
@@ -700,7 +717,7 @@ Complete the payment via checkout and click **Verify Payment**."""
                 reply_markup=self.start_kb()
             )
     
-    async def show_dashboard(self, message: Message, user_id: int, callback: bool = False):
+    async def show_dashboard(self, message, user_id, callback: bool = False):
         text = self.get_dashboard_text(user_id)
         if callback:
             await message.edit_text(text, reply_markup=self.dashboard_kb())
@@ -708,12 +725,15 @@ Complete the payment via checkout and click **Verify Payment**."""
             await message.reply_text(text, reply_markup=self.dashboard_kb())
     
     # ---------- Chat Member Updates ----------
-    async def chat_member_handler(self, client: Client, chat_member: ChatMemberUpdated):
+    async def chat_member_handler(self, client, chat_member):
         chat = chat_member.chat
         new_status = chat_member.new_chat_member.status
         user = chat_member.new_chat_member.user
         
-        # Bot became admin in a channel
+        ChatType = self.pyrogram['ChatType']
+        ChatMemberStatus = self.pyrogram['ChatMemberStatus']
+        RPCError = self.pyrogram['RPCError']
+        
         if user.id == client.me.id and new_status == ChatMemberStatus.ADMINISTRATOR:
             if chat.type in [ChatType.CHANNEL, ChatType.SUPERGROUP]:
                 promoter_id = chat_member.from_user.id
@@ -727,13 +747,11 @@ Complete the payment via checkout and click **Verify Payment**."""
                 )
             return
         
-        # User join/leave events
         if chat.type in [ChatType.CHANNEL, ChatType.SUPERGROUP]:
             owner_id = self.db.get_channel_owner(chat.id)
             if not owner_id:
                 return
             
-            # Anti-Premium Guard on JOIN
             if new_status == ChatMemberStatus.MEMBER and user.is_premium:
                 has_access, _ = self.db.get_user_access(owner_id)
                 if has_access:
@@ -745,23 +763,20 @@ Complete the payment via checkout and click **Verify Payment**."""
                         except RPCError as e:
                             logger.error(f"Failed to kick: {e}")
             
-            # Leave DM Logic
             if new_status in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]:
                 messages = self.db.get_leave_messages(owner_id)
                 if messages:
                     self.db.add_pending_dm(user.id, owner_id)
     
     # ---------- Callback Query Handler ----------
-    async def callback_handler(self, client: Client, callback: CallbackQuery):
+    async def callback_handler(self, client, callback):
         user_id = callback.from_user.id
         data = callback.data
         
-        # Agent checker
         if user_id != ADMIN_ID and self.db.get_agent_count() == 0:
             await callback.answer("Agent not added contact owner @absolecore", show_alert=True)
             return
         
-        # ---------- Dashboard ----------
         if data == "open_dashboard":
             self.db.set_state(user_id, None)
             has_access, _ = self.db.get_user_access(user_id)
@@ -772,7 +787,6 @@ Complete the payment via checkout and click **Verify Payment**."""
             await callback.answer()
             return
         
-        # ---------- Leave DM Setup ----------
         if data == "setup_leave_dms":
             self.db.set_state(user_id, "waiting_for_leave_msgs", json.dumps([]))
             await callback.message.edit_text(
@@ -782,7 +796,6 @@ Complete the payment via checkout and click **Verify Payment**."""
             await callback.answer()
             return
         
-        # ---------- Key Activation ----------
         if data == "enter_key":
             self.db.set_state(user_id, "waiting_for_key")
             await callback.message.edit_text(
@@ -792,7 +805,6 @@ Complete the payment via checkout and click **Verify Payment**."""
             await callback.answer()
             return
         
-        # ---------- Start Menu ----------
         if data == "start_menu":
             self.db.set_state(user_id, None)
             await callback.message.edit_text(
@@ -802,7 +814,6 @@ Complete the payment via checkout and click **Verify Payment**."""
             await callback.answer()
             return
         
-        # ---------- Buy Subscription ----------
         if data == "buy_key":
             self.db.set_state(user_id, "waiting_for_buy_days")
             prices = self.db.get_prices()
@@ -820,19 +831,11 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             await callback.answer()
             return
         
-        # ---------- Verify Payment (REAL VERIFICATION) ----------
         if data.startswith("verify_pay:"):
             order_id = data.split(":")[1]
-            
-            # Call the real verification
-            await self.verify_payment(
-                order_id, 
-                callback.message.chat.id, 
-                callback.id
-            )
+            await self.verify_payment(order_id, callback.message.chat.id, callback.id)
             return
         
-        # ---------- Auto Claim ----------
         if data.startswith("auto_claim:"):
             key_code = data.split(":")[1]
             if self.db.activate_key(user_id, key_code):
@@ -842,7 +845,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 await callback.answer("❌ Key activation failed!", show_alert=True)
             return
         
-        # ---------- Approve User ----------
         if data == "approve_user":
             self.db.set_state(user_id, "waiting_for_approved_id")
             await callback.message.edit_text(
@@ -852,7 +854,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             await callback.answer()
             return
         
-        # ---------- Delete Approved Menu ----------
         if data == "del_approved_menu":
             users = self.db.get_approved_users(user_id)
             if not users:
@@ -866,26 +867,24 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             buttons = []
             for u in users:
                 buttons.append([
-                    InlineKeyboardButton(
+                    self.pyrogram['InlineKeyboardButton'](
                         f"❌ {u['username']} ({u['id']})",
                         callback_data=f"del_user:{u['id']}"
                     )
                 ])
-            buttons.append([InlineKeyboardButton("🔙 Back", callback_data="open_dashboard")])
+            buttons.append([self.pyrogram['InlineKeyboardButton']("🔙 Back", callback_data="open_dashboard")])
             
             await callback.message.edit_text(
                 "🗑 **SELECT whom to delete from approved whitelist:**",
-                reply_markup=InlineKeyboardMarkup(buttons)
+                reply_markup=self.pyrogram['InlineKeyboardMarkup'](buttons)
             )
             await callback.answer()
             return
         
-        # ---------- Delete User ----------
         if data.startswith("del_user:"):
             target_id = int(data.split(":")[1])
             self.db.remove_approved_user(user_id, target_id)
             await callback.answer("User removed from whitelist.", show_alert=True)
-            # Refresh the menu
             await self.callback_handler(client, callback.__class__(
                 id=callback.id,
                 from_user=callback.from_user,
@@ -895,7 +894,7 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             ))
             return
         
-        # ---------- Admin Handlers ----------
+        # Admin Handlers
         if user_id == ADMIN_ID:
             if data == "adm_dashboard":
                 self.db.set_state(user_id, None)
@@ -916,16 +915,16 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 return
             
             if data == "adm_change_price_menu":
-                kb = InlineKeyboardMarkup([
+                kb = self.pyrogram['InlineKeyboardMarkup']([
                     [
-                        InlineKeyboardButton("💵 7-Day Price", callback_data="set_price:price_7"),
-                        InlineKeyboardButton("💵 Monthly Price", callback_data="set_price:price_30")
+                        self.pyrogram['InlineKeyboardButton']("💵 7-Day Price", callback_data="set_price:price_7"),
+                        self.pyrogram['InlineKeyboardButton']("💵 Monthly Price", callback_data="set_price:price_30")
                     ],
                     [
-                        InlineKeyboardButton("💵 Lifetime Price", callback_data="set_price:price_life")
+                        self.pyrogram['InlineKeyboardButton']("💵 Lifetime Price", callback_data="set_price:price_life")
                     ],
                     [
-                        InlineKeyboardButton("🔙 Back", callback_data="adm_dashboard")
+                        self.pyrogram['InlineKeyboardButton']("🔙 Back", callback_data="adm_dashboard")
                     ]
                 ])
                 await callback.message.edit_text(
@@ -987,11 +986,10 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 return
     
     # ---------- Message Handler ----------
-    async def message_handler(self, client: Client, message: Message):
+    async def message_handler(self, client, message):
         user_id = message.from_user.id
         text = message.text.strip() if message.text else ""
         
-        # Agent Check Blocker
         if user_id != ADMIN_ID and self.db.get_agent_count() == 0:
             await message.reply_text("Agent not added contact owner @absolecore")
             return
@@ -999,7 +997,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
         state_data = self.db.get_state(user_id)
         state = state_data['state'] if state_data else None
         
-        # ---------- Admin: Add Agent ----------
         if state == "waiting_for_agent_session" and user_id == ADMIN_ID:
             if self.db.add_agent(text):
                 self.db.set_state(user_id, None)
@@ -1011,7 +1008,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 await message.reply_text("⚠️ Failed to add agent: It might already exist.")
             return
         
-        # ---------- Leave Messages Setup ----------
         if state == "waiting_for_leave_msgs":
             if text.upper() == "SAVE":
                 msgs = json.loads(state_data['data'] or "[]") if state_data else []
@@ -1037,15 +1033,14 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 )
                 return
         
-        # ---------- Key Activation ----------
         if state == "waiting_for_key":
             if self.db.activate_key(user_id, text):
                 self.db.set_state(user_id, None)
                 await self.show_dashboard(message, user_id)
             else:
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔄 Try Again", callback_data="enter_key")],
-                    [InlineKeyboardButton("💳 Buy Subscription", callback_data="buy_key")]
+                kb = self.pyrogram['InlineKeyboardMarkup']([
+                    [self.pyrogram['InlineKeyboardButton']("🔄 Try Again", callback_data="enter_key")],
+                    [self.pyrogram['InlineKeyboardButton']("💳 Buy Subscription", callback_data="buy_key")]
                 ])
                 await message.reply_text(
                     "❌ **Invalid or Already Used Key!**",
@@ -1053,7 +1048,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 )
             return
         
-        # ---------- Buy Custom Days ----------
         if state == "waiting_for_buy_days":
             price, days = self.calculate_price(text)
             if days == 0:
@@ -1066,7 +1060,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             await self.initiate_payment(user_id, message.chat.id, price, days)
             return
         
-        # ---------- Approved User Whitelist ----------
         if state == "waiting_for_approved_id":
             if not text.isdigit():
                 await message.reply_text("⚠️ Please provide a valid numerical Telegram User ID.")
@@ -1079,7 +1072,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             await self.show_dashboard(message, user_id)
             return
         
-        # ---------- Admin: Change Price ----------
         if state and state.startswith("waiting_for_price_") and user_id == ADMIN_ID:
             try:
                 new_price = float(text)
@@ -1094,7 +1086,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
                 await message.reply_text("⚠️ Please send a valid numeric price.")
             return
         
-        # ---------- Admin: Generate Custom Key ----------
         if state == "waiting_for_custom_key_days" and user_id == ADMIN_ID:
             if not text.isdigit():
                 await message.reply_text("⚠️ Please enter a valid number of days.")
@@ -1111,6 +1102,9 @@ _(Custom days parameter applies automatically based on the monthly standard valu
     
     # ---------- Run ----------
     async def run(self):
+        # Initialize pyrogram after event loop is set
+        self.init_pyrogram()
+        
         # Start DM processor
         self.dm_processor_task = asyncio.create_task(self.process_dm_queue())
         
@@ -1118,8 +1112,8 @@ _(Custom days parameter applies automatically based on the monthly standard valu
         self.session = aiohttp.ClientSession()
         
         # Register handlers
-        self.app.on_message(filters.command("start"))(self.start_command)
-        self.app.on_message(filters.text & ~filters.command("start"))(self.message_handler)
+        self.app.on_message(self.pyrogram['filters'].command("start"))(self.start_command)
+        self.app.on_message(self.pyrogram['filters'].text & ~self.pyrogram['filters'].command("start"))(self.message_handler)
         self.app.on_callback_query()(self.callback_handler)
         self.app.on_chat_member_updated()(self.chat_member_handler)
         
@@ -1136,7 +1130,6 @@ _(Custom days parameter applies automatically based on the monthly standard valu
 # ----------------- MAIN -----------------
 async def main():
     """Main async function to run the bot"""
-    # Set up event loop policy for Windows if needed
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
@@ -1144,5 +1137,4 @@ async def main():
     await bot.run()
 
 if __name__ == "__main__":
-    # Simple run without nest_asyncio
     asyncio.run(main())
