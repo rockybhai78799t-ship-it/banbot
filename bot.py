@@ -4,6 +4,7 @@ Anti-Premium Guard Bot - Pure Python Single File Version
 With REAL Payment Verification via FAM Gateway
 UPI: Chandaliya@fam
 """
+
 import sqlite3
 import json
 import asyncio
@@ -17,7 +18,7 @@ import aiohttp
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 
-# Now import pyrogram
+# Import pyrogram after setting up event loop
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, 
@@ -1133,10 +1134,15 @@ _(Custom days parameter applies automatically based on the monthly standard valu
             await self.session.close()
 
 # ----------------- MAIN -----------------
-if __name__ == "__main__":
-    # Fix for Windows event loop
+async def main():
+    """Main async function to run the bot"""
+    # Set up event loop policy for Windows if needed
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
     bot = AntiPremiumBot()
-    asyncio.run(bot.run())
+    await bot.run()
+
+if __name__ == "__main__":
+    # Simple run without nest_asyncio
+    asyncio.run(main())
