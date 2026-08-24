@@ -33,7 +33,7 @@ from pyrogram.errors import RPCError
 # --- Continue with rest of your code ---
 
 # ----------------- CONFIGURATION -----------------
-BOT_TOKEN = '8441889585:AAHingdC8NrvNT84Ya-topY8A2a58NRj27s'
+BOT_TOKEN = '8441889585:AAEzK6uiWBPUG_4tEATWV2XojH80A0Jih8Y'
 ADMIN_ID = 8790937904
 FAM_API_KEY = 'fam_76e80dd1401deb6f2e74aa34e270c6f41ff9b088'
 BASE_URL = 'https://famgateway.in'
@@ -198,7 +198,7 @@ class Database:
         for _ in range(3):
             seg = ''.join(random.choice(chars) for _ in range(4))
             segments.append(seg)
-        key = 'ABHAY' + '-'.join(segments)
+        key = 'ABHAY' + '-' + '-'.join(segments)
         
         with self.get_conn() as conn:
             conn.execute(
@@ -1132,9 +1132,11 @@ _(Custom days parameter applies automatically based on the monthly standard valu
         await self.app.start()
         
         try:
-            await asyncio.Event().wait()  # Keep running
+            # Keep the bot running using pyrogram's idle method
+            await self.app.idle()
         finally:
             await self.session.close()
+            await self.app.stop()
 
 # ----------------- MAIN -----------------
 if __name__ == "__main__":
