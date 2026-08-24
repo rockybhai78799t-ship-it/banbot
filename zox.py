@@ -1,4 +1,4 @@
-8441889585:AAHingdC8NrvNT84Ya-topY8A2a58NRj27s#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Anti-Premium Guard Bot - Pure Python Single File Version
 With REAL Payment Verification via FAM Gateway
