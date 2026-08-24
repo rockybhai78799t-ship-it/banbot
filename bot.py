@@ -13,7 +13,9 @@ import os
 import random
 import string
 import time
+import sys
 import aiohttp
+import nest_asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Tuple, List, Dict, Any
 
@@ -24,6 +26,9 @@ from pyrogram.types import (
 )
 from pyrogram.enums import ChatType, ChatMemberStatus
 from pyrogram.errors import RPCError
+
+# Apply nest_asyncio to fix event loop issues
+nest_asyncio.apply()
 
 # ----------------- CONFIGURATION -----------------
 BOT_TOKEN = '8441889585:AAEzK6uiWBPUG_4tEATWV2XojH80A0Jih8Y'
@@ -456,7 +461,7 @@ class AntiPremiumBot:
             
             payload = {
                 "amount": amount,
-                "redirect_url": f"https://t.me/YourBotUsername",  # Change this
+                "redirect_url": f"https://t.me/YourBotUsername",  # Change this to your bot username
                 "upi_id": UPI_ID,
                 "payee_name": UPI_NAME
             }
@@ -1121,17 +1126,21 @@ _(Custom days parameter applies automatically based on the monthly standard valu
         self.app.on_callback_query()(self.callback_handler)
         self.app.on_chat_member_updated()(self.chat_member_handler)
         
-        logger.info("🚀 Anti-Premium Guard Bot (Pure Python) started!")
+        logger.info("🚀 Anti-Premium Guard Bot started!")
         logger.info(f"📱 UPI ID: {UPI_ID}")
         logger.info(f"🔑 API Key: {FAM_API_KEY[:20]}...")
         await self.app.start()
         
         try:
-            await asyncio.Event().wait()  # Keep running
+            await asyncio.Event().wait()
         finally:
             await self.session.close()
 
 # ----------------- MAIN -----------------
 if __name__ == "__main__":
+    # Fix for Windows event loop
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
     bot = AntiPremiumBot()
     asyncio.run(bot.run())
